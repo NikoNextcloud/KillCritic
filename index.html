@@ -27,7 +27,48 @@
     </header>
 
     <main>
-      <section class="page active" id="homePage">
+      <section class="page active" id="counterPage">
+        <div class="counter-hero">
+          <p class="eyebrow">МОЯТ ПЪТ БЕЗ АЛКОХОЛ</p>
+          <h1>Всяка секунда<br><span>е твоя.</span></h1>
+          <div class="counter-stack" aria-label="Време без алкохол">
+            <article class="counter-unit featured"><span id="counterYears">0</span><small>години</small></article>
+            <article class="counter-unit"><span id="counterMonths">0</span><small>месеца</small></article>
+            <article class="counter-unit"><span id="counterDays">0</span><small>дни</small></article>
+            <article class="counter-unit"><span id="counterHours">0</span><small>часа</small></article>
+            <article class="counter-unit"><span id="counterMinutes">0</span><small>минути</small></article>
+            <article class="counter-unit"><span id="counterSeconds">0</span><small>секунди</small></article>
+          </div>
+          <div class="counter-actions"><button class="primary" id="setSoberStart">Избери начална дата</button><button class="share-button" id="shareProgress">Сподели прогреса</button></div>
+          <p class="counter-since" id="counterSince">Началото е сега.</p>
+        </div>
+        <section class="card counter-note"><span>✦</span><div><p class="eyebrow">ТВОЯТ ПРОГРЕС</p><h2 id="counterMessage">Не е нужно да мислиш за завинаги. Само за днес.</h2></div></section>
+      </section>
+
+      <section class="page" id="challengesPage">
+        <div class="challenge-hero">
+          <p class="eyebrow">МАЛКИ ДЕЙСТВИЯ, ИСТИНСКА ПРОМЯНА</p>
+          <h1>Твоят план<br><span>за днес.</span></h1>
+          <p id="challengeDate"></p>
+          <div class="daily-progress"><div><strong id="challengeProgressText">0 от 4</strong><small>завършени</small></div><div class="progress-track"><i id="challengeProgressBar"></i></div></div>
+        </div>
+        <div class="challenge-list" id="challengeList"></div>
+        <button class="refresh-challenges" id="refreshChallenges">↻ Дай ми различни предизвикателства</button>
+      </section>
+
+      <section class="page" id="calendarPage">
+        <div class="calendar-heading"><div><p class="eyebrow">КАЛЕНДАР НА ТРЕЗВЕНОСТТА</p><h1>Виж своята<br><span>посока.</span></h1></div><span class="calendar-symbol">▦</span></div>
+        <section class="calendar-card">
+          <div class="calendar-toolbar"><button id="previousMonth" aria-label="Предишен месец">‹</button><h2 id="calendarMonth"></h2><button id="nextMonth" aria-label="Следващ месец">›</button></div>
+          <div class="calendar-weekdays"><span>П</span><span>В</span><span>С</span><span>Ч</span><span>П</span><span>С</span><span>Н</span></div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+          <div class="calendar-legend"><span><i class="sober-dot"></i> Трезвен ден</span><span><i class="drink-dot"></i> Ден с алкохол</span><span>Докосни ден за промяна</span></div>
+        </section>
+        <section class="month-summary"><article><small>ТРЕЗВИ ДНИ</small><strong id="monthSoberDays">0</strong></article><article><small>ДНИ С АЛКОХОЛ</small><strong id="monthDrinkDays">0</strong></article><article><small>УСПЕВАЕМОСТ</small><strong id="monthSuccess">0%</strong></article></section>
+      </section>
+
+      <section class="page" id="morePage">
+        <div class="more-heading"><p class="eyebrow">ВСИЧКО ОСТАНАЛО</p><h1>Инструменти<br><span>и профил.</span></h1><div class="more-shortcuts"><button data-open-subpage="insightsPage">↗ Моите победи</button><button data-open-subpage="youPage">○ Моят профил</button></div></div>
         <div class="welcome-row">
           <div><p class="eyebrow" id="todayLabel">ДНЕС</p><h1>Как си<br><span>точно сега?</span></h1></div>
           <div class="sun-orbit"><span>☀</span></div>
@@ -69,6 +110,7 @@
       </section>
 
       <section class="page" id="insightsPage">
+        <button class="subpage-back" data-back-more>‹ Назад към „Още“</button>
         <div class="page-heading"><p class="eyebrow">НЕ БРОИМ ЛИШЕНИЯ</p><h1>Ето какво<br><span>си върна.</span></h1></div>
         <section class="insight-hero">
           <div class="ring"><span id="winsCount">0</span><small>добри избора</small></div>
@@ -86,6 +128,7 @@
       </section>
 
       <section class="page" id="youPage">
+        <button class="subpage-back" data-back-more>‹ Назад към „Още“</button>
         <div class="page-heading"><p class="eyebrow">ТВОЯТ КОМПАС</p><h1>Всичко важно<br><span>остава при теб.</span></h1></div>
         <section class="card profile-card"><div class="big-avatar" id="profileInitials">АЗ</div><div><h2 id="profileName">Моето спокойно аз</h2><p>Всеки нов профил започва от 0. Данните се пазят в този браузър.</p></div></section>
         <section class="settings card">
@@ -99,7 +142,7 @@
     </main>
 
     <nav class="bottom-nav" aria-label="Основна навигация">
-      <button class="active" data-page="homePage"><span>⌂</span>Днес</button><button data-page="insightsPage"><span>↗</span>Победи</button><button data-page="youPage"><span>○</span>Ти</button>
+      <button class="active" data-page="counterPage"><span>◷</span>Брояч</button><button data-page="challengesPage"><span>✦</span>Днес</button><button data-page="calendarPage"><span>▦</span>Календар</button><button data-page="morePage"><span>•••</span>Още</button>
     </nav>
   </div>
 
