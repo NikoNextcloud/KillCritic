@@ -3,18 +3,170 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#050505">
+  <meta name="theme-color" content="#fff8f1">
   <meta name="description" content="KILLCRITIC — личен помощник за трудните моменти, без вина и без назидание.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="KILLCRITIC">
   <title>KILLCRITIC — кризата има край</title>
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <script type="module" src="/src/main.tsx"></script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="updates.css">
+  <link rel="stylesheet" href="counter-updates.css">
 </head>
 <body>
-  <div id="root"></div>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="KILLCRITIC начало"><span class="brand-mark">K</span><span>KILLCRITIC</span></a>
+      <button class="avatar" id="profileButton" aria-label="Профил">АЗ</button>
+    </header>
+
+    <main>
+      <section class="page active" id="counterPage">
+        <div class="counter-hero">
+          <p class="eyebrow">МОЯТ ПЪТ БЕЗ АЛКОХОЛ</p>
+          <h1>Всяка секунда<br><span>е твоя.</span></h1>
+          <div class="counter-stack" aria-label="Време без алкохол">
+            <article class="counter-unit" data-counter-unit="years"><span id="counterYears">0</span><small>години</small></article>
+            <article class="counter-unit" data-counter-unit="months"><span id="counterMonths">0</span><small>месеца</small></article>
+            <article class="counter-unit" data-counter-unit="days"><span id="counterDays">0</span><small>дни</small></article>
+            <article class="counter-unit" data-counter-unit="hours"><span id="counterHours">0</span><small>часа</small></article>
+            <article class="counter-unit" data-counter-unit="minutes"><span id="counterMinutes">0</span><small>минути</small></article>
+            <article class="counter-unit" data-counter-unit="seconds"><span id="counterSeconds">0</span><small>секунди</small></article>
+          </div>
+          <div class="counter-actions"><button class="primary sobriety-button" id="toggleSobriety">Трезвеност</button><button class="counter-control" id="stopCounter">■ Спри</button><button class="share-button" id="shareProgress">Сподели</button></div>
+          <p class="counter-since" id="counterSince">Началото е сега.</p>
+        </div>
+        <section class="card counter-note"><span>✦</span><div><p class="eyebrow">ТВОЯТ ПРОГРЕС</p><h2 id="counterMessage">Не е нужно да мислиш за завинаги. Само за днес.</h2></div></section>
+        <section class="counter-history-section"><div class="section-title"><div><p class="eyebrow">ЗАПАЗЕНИ ПОСТИЖЕНИЯ</p><h2>История на брояча</h2></div><span id="historyCount">0 записа</span></div><div class="counter-history" id="counterHistory"></div></section>
+      </section>
+
+      <section class="page" id="challengesPage">
+        <div class="challenge-hero">
+          <p class="eyebrow">МАЛКИ ДЕЙСТВИЯ, ИСТИНСКА ПРОМЯНА</p>
+          <h1>Твоят план<br><span>за днес.</span></h1>
+          <p id="challengeDate"></p>
+          <div class="daily-progress"><div><strong id="challengeProgressText">0 от 6</strong><small>завършени</small></div><div class="progress-track"><i id="challengeProgressBar"></i></div></div>
+        </div>
+        <div class="challenge-list" id="challengeList"></div>
+        <button class="refresh-challenges" id="refreshChallenges">↻ Дай ми различни предизвикателства</button>
+      </section>
+
+      <section class="page" id="calendarPage">
+        <div class="calendar-heading"><div><p class="eyebrow">КАЛЕНДАР НА ТРЕЗВЕНОСТТА</p><h1>Виж своята<br><span>посока.</span></h1></div><span class="calendar-symbol">▦</span></div>
+        <section class="calendar-card">
+          <div class="calendar-toolbar"><button id="previousMonth" aria-label="Предишен месец">‹</button><h2 id="calendarMonth"></h2><button id="nextMonth" aria-label="Следващ месец">›</button></div>
+          <div class="calendar-weekdays"><span>П</span><span>В</span><span>С</span><span>Ч</span><span>П</span><span>С</span><span>Н</span></div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+          <div class="calendar-legend"><span><i class="sober-dot"></i> Трезвен ден</span><span><i class="drink-dot"></i> Ден с алкохол</span><span>Докосни ден за промяна</span></div>
+        </section>
+        <section class="month-summary"><article><small>ТРЕЗВИ ДНИ</small><strong id="monthSoberDays">0</strong></article><article><small>ДНИ С АЛКОХОЛ</small><strong id="monthDrinkDays">0</strong></article><article><small>УСПЕВАЕМОСТ</small><strong id="monthSuccess">0%</strong></article></section>
+        <section class="calendar-statistics card"><div class="section-title"><div><p class="eyebrow">ОБЩА СТАТИСТИКА</p><h2>Твоята последователност</h2></div></div><div class="stats-grid"><article><span>🔥</span><strong id="currentStreak">0</strong><small>текуща серия</small></article><article><span>🏆</span><strong id="bestStreak">0</strong><small>най-добра серия</small></article><article><span>✓</span><strong id="allSoberDays">0</strong><small>общо трезви дни</small></article><article><span>30</span><strong id="last30Success">0%</strong><small>последни 30 дни</small></article></div><div class="trend-line"><span>Последни 30 дни</span><div><i id="last30Bar"></i></div></div></section>
+      </section>
+
+      <section class="page" id="morePage">
+        <div class="more-heading"><p class="eyebrow">ВСИЧКО ОСТАНАЛО</p><h1>Инструменти<br><span>и профил.</span></h1><div class="more-shortcuts"><button data-open-subpage="insightsPage">↗ Моите победи</button><button data-open-subpage="youPage">○ Моят профил</button></div></div>
+        <div class="welcome-row">
+          <div><p class="eyebrow" id="todayLabel">ДНЕС</p><h1>Как си<br><span>точно сега?</span></h1></div>
+          <div class="sun-orbit"><span>☀</span></div>
+        </div>
+
+        <button class="craving-card" id="startCraving">
+          <span class="craving-copy"><small>БЕЗ ОБЯСНЕНИЯ. БЕЗ ВИНА.</small><strong>Имам желание</strong><em>Нека преминем през вълната заедно →</em></span>
+          <span class="wave-orb" aria-hidden="true"><i></i><b>≈</b></span>
+        </button>
+
+        <section class="mood-card card">
+          <div class="section-title"><div><p class="eyebrow">ЕДНО ДОКОСВАНЕ</p><h2>Отбележи настроението</h2></div><span id="moodStatus">не е избрано</span></div>
+          <div class="moods" id="moodPicker">
+            <button data-mood="Страхотно" data-emoji="😊">😊<small>супер</small></button>
+            <button data-mood="Спокойно" data-emoji="😐">😐<small>равно</small></button>
+            <button data-mood="Тъжно" data-emoji="😔">😔<small>тъжно</small></button>
+            <button data-mood="Ядосано" data-emoji="😡">😡<small>яд</small></button>
+            <button data-mood="Тревожно" data-emoji="😰">😰<small>тревога</small></button>
+          </div>
+        </section>
+
+        <section class="home-tools">
+          <div class="section-title tools-title"><div><p class="eyebrow">ПОМОЩ В ТОЧНИЯ МОМЕНТ</p><h2>Какво ще ти помогне сега?</h2></div></div>
+          <div class="tool-grid">
+            <button class="tool-card coral" id="openSimulator"><span>6h</span><h2>След 6 часа</h2><p>Виж реалната цена на избора, преди да го направиш.</p></button>
+            <button class="tool-card lavender" id="openMessage"><span>▶</span><h2>Послание от теб</h2><p>Запиши гласа на трезвото си аз за трудните моменти.</p></button>
+            <button class="tool-card mint" id="openBreathing"><span>◌</span><h2>Само 5 минути</h2><p>Дишане, лично послание и човек за контакт.</p></button>
+            <button class="tool-card yellow" id="openReason"><span>✦</span><h2>Какво стои отдолу?</h2><p>Отбележи причината с едно докосване.</p></button>
+            <button class="tool-card sky" id="openPlaces"><span>⌖</span><h2>Рискови места</h2><p>Запази място и получи предупреждение, когато отново си близо.</p></button>
+            <button class="tool-card rose" id="openCost"><span>∑</span><h2>Истинската цена</h2><p>Въведи сам сън, енергия, тревожност, тренировки и продуктивност.</p></button>
+            <button class="tool-card violet" id="openRadar"><span>AI</span><h2>Радар за самозаблуда</h2><p>Напиши мисълта си и виж дали повтаря стар модел.</p></button>
+          </div>
+        </section>
+
+        <section class="mission card">
+          <div class="mission-icon">◎</div><div><p class="eyebrow">МИСИЯ ЗА ДНЕС</p><h2 id="missionText">Излез и снимай нещо синьо.</h2><button class="text-button" id="newMission">Друга мисия ↻</button></div>
+          <button class="round-check" id="completeMission" aria-label="Завърши мисия">✓</button>
+        </section>
+      </section>
+
+      <section class="page" id="insightsPage">
+        <button class="subpage-back" data-back-more>‹ Назад към „Още“</button>
+        <div class="page-heading"><p class="eyebrow">НЕ БРОИМ ЛИШЕНИЯ</p><h1>Ето какво<br><span>си върна.</span></h1></div>
+        <section class="insight-hero">
+          <div class="ring"><span id="winsCount">0</span><small>добри избора</small></div>
+          <div><p>Твоята посока</p><h2>Повече време,<br>по-малко шум.</h2></div>
+        </section>
+        <section class="impact-grid">
+          <article><small>ЗАПИСАНИ СЛУЧАИ</small><strong id="costEntriesCount">0</strong></article>
+          <article><small>ЗАГУБЕН СЪН</small><strong id="totalSleepCost">0 ч.</strong></article>
+          <article><small>ОБЩ РАЗХОД</small><strong id="totalMoneyCost">0 лв.</strong></article>
+          <article><small>ПРОПУСНАТИ ТРЕНИРОВКИ</small><strong id="totalWorkouts">0</strong></article>
+        </section>
+        <section class="card ai-insight-card"><div><p class="eyebrow">AI АНАЛИЗ</p><h2>Свържи точките по-дълбоко</h2><p id="aiInsightText">След като добавиш записи, AI може да потърси повтарящи се часове, причини и последствия.</p><small>При натискане записите за настроение и последствия се изпращат към настроения AI сървър. GPS координати не се изпращат.</small></div><button class="primary" id="runDeepAnalysis">Анализирай записите</button></section>
+        <section class="card chart-card"><div class="section-title"><div><p class="eyebrow">ПОСЛЕДНИТЕ 7 ДНИ</p><h2>Карта на настроенията</h2></div></div><div class="mood-chart" id="moodChart"></div></section>
+        <section class="card pattern-card"><span class="spark">✦</span><div><p class="eyebrow">ЛИЧНО ПРОЗРЕНИЕ</p><h2 id="patternText">Когато събереш няколко отбелязвания, тук ще видиш своите закономерности.</h2><p>Това е наблюдение, не диагноза.</p></div></section>
+      </section>
+
+      <section class="page" id="youPage">
+        <button class="subpage-back" data-back-more>‹ Назад към „Още“</button>
+        <div class="page-heading"><p class="eyebrow">ТВОЯТ КОМПАС</p><h1>Всичко важно<br><span>остава при теб.</span></h1></div>
+        <section class="card profile-card"><div class="big-avatar" id="profileInitials">АЗ</div><div><h2 id="profileName">Моето спокойно аз</h2><p>Всеки нов профил започва от 0. Данните се пазят в този браузър.</p></div></section>
+        <section class="settings card">
+          <button id="newProfile"><span>＋</span><div><strong>Нов профил</strong><small>Ново начало от абсолютна нула</small></div><b>›</b></button>
+          <button id="contactSetting"><span>☎</span><div><strong>Човек за контакт</strong><small id="contactDisplay">Добави телефон</small></div><b>›</b></button>
+          <button id="exportData"><span>↓</span><div><strong>Изтегли моите данни</strong><small>JSON архив на записите</small></div><b>›</b></button>
+          <button id="resetData"><span>↻</span><div><strong>Нов старт</strong><small>Изчисти локалните данни</small></div><b>›</b></button>
+        </section>
+        <aside class="help-note"><strong>Ако си в непосредствена опасност</strong><p>KILLCRITIC не е медицинска услуга. Обади се на 112 или потърси медицинска помощ. Рязкото спиране на алкохола може да бъде опасно при зависимост.</p><a href="tel:112">Обади се на 112</a></aside>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Основна навигация">
+      <button class="active" data-page="counterPage"><span>◷</span>Брояч</button><button data-page="challengesPage"><span>✦</span>Днес</button><button data-page="calendarPage"><span>▦</span>Календар</button><button data-page="morePage"><span>•••</span>Още</button>
+    </nav>
+  </div>
+
+  <div class="modal" id="modal" aria-hidden="true"><div class="modal-backdrop" data-close></div><div class="modal-sheet"><button class="modal-close" data-close>×</button><div id="modalContent"></div></div></div>
+
+  <section class="crisis" id="crisis" aria-hidden="true">
+    <div class="crisis-sky"><div class="big-wave wave-a"></div><div class="big-wave wave-b"></div></div>
+    <header><span class="brand-mark">K</span><button id="exitCrisis">Изход ×</button></header>
+    <div class="crisis-content">
+      <p class="eyebrow">ВЪЛНАТА СЕ ДВИЖИ. ТИ НЕ СИ ВЪЛНАТА.</p><h2 id="crisisTitle">Остани тук<br>за следващия дъх.</h2>
+      <div class="crisis-timer" id="crisisTimer">05:00</div>
+      <div class="breath"><div class="breath-circle"></div><span id="breathLabel">Вдишай</span></div>
+      <div class="intensity"><label>Колко силно е сега? <output id="intensityOutput">7</output>/10</label><input id="intensitySlider" type="range" min="1" max="10" value="7"></div>
+      <div class="crisis-actions"><button id="playRecording">▶ Послание от мен</button><a id="callContact" href="tel:112">☎ Обади се</a></div>
+      <button class="soft-link" id="saveIntensity">Запази как се чувствам</button>
+    </div>
+  </section>
+  <div class="toast" id="toast" role="status"></div>
+  <section class="onboarding" id="onboarding" aria-hidden="true">
+    <div class="onboarding-card"><span class="brand-mark">K</span><p class="eyebrow">ТВОЕТО НАЧАЛО</p><h2>Започваме от нула.<br>Без чужди числа.</h2><p>Въведи име или прякор. Всички победи, записи и анализи ще бъдат само твои.</p><label>Как да те наричаме?<input id="onboardingName" maxlength="30" placeholder="Например: Алекс"></label><button class="primary" id="createProfile">Създай моя профил</button></div>
+  </section>
+  <script src="app.js"></script>
 </body>
 </html>
