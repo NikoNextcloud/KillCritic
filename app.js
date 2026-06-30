@@ -16,6 +16,7 @@ const emptyProfile = () => ({
   radarEntries: [],
   aiInsights: [],
   soberStart: '',
+  soberSessions: [],
   sobrietyDays: {},
   challengeCompletions: {},
   challengeVariant: {}
@@ -102,6 +103,7 @@ function render() {
   renderChallenges();
   renderCalendar();
   updateCounter();
+  renderCounterHistory();
 }
 
 $$('.bottom-nav button').forEach(button => button.onclick = () => {
@@ -129,7 +131,7 @@ $('#createProfile').onclick = () => {
   data = emptyProfile();
   data.profileName = name;
   data.createdAt = new Date().toISOString();
-  data.soberStart = new Date().toISOString();
+  data.soberStart = '';
   localStorage.removeItem('kc_audio');
   audioUrl = '';
   save();
@@ -177,24 +179,87 @@ function updateCounter() {
     const element = $('#counter' + name[0].toUpperCase() + name.slice(1));
     if (element) element.textContent = value;
   });
+  const fill = {
+    years: Math.min(100, parts.years / 5 * 100),
+    months: parts.months / 12 * 100,
+    days: parts.days / 31 * 100,
+    hours: parts.hours / 24 * 100,
+    minutes: parts.minutes / 60 * 100,
+    seconds: parts.seconds / 60 * 100
+  };
+  $$('[data-counter-unit]').forEach(unit => {
+    const amount = fill[unit.dataset.counterUnit] || 0;
+    unit.style.setProperty('--fill', `${start && amount > 0 ? Math.max(2, amount) : 0}%`);
+    unit.classList.toggle('paused', !start);
+  });
   $('#counterSince').textContent = start
     ? `Начало: ${start.toLocaleString('bg-BG', { dateStyle: 'long', timeStyle: 'short' })}`
-    : 'Избери кога е започнал твоят път.';
+    : 'Броячът е спрян. Натисни „Трезвеност“, когато си готов.';
   const totalDays = start ? Math.max(0, Math.floor((Date.now() - start.getTime()) / 86400000)) : 0;
   $('#counterMessage').textContent = totalDays > 0
     ? `${totalDays} ${totalDays === 1 ? 'цял ден е' : 'цели дни са'} вече зад теб. Продължи само с днешния.`
     : 'Не е нужно да мислиш за завинаги. Само за днес.';
+  $('#toggleSobriety').textContent = start ? '✓ Трезвеността е активна' : 'Трезвеност';
+  $('#toggleSobriety').classList.toggle('running', Boolean(start));
+  $('#toggleSobriety').disabled = Boolean(start);
+  $('#stopCounter').disabled = !start;
+  $('#resetCounter').disabled = !start;
+  $('#shareProgress').disabled = !start;
 }
 
-$('#setSoberStart').onclick = () => {
-  const value = data.soberStart ? new Date(data.soberStart) : new Date();
-  const localValue = new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  openModal(`<p class="eyebrow">НАЧАЛО НА БРОЯЧА</p><h2>Откога си без алкохол?</h2><p>Можеш да коригираш датата по всяко време. Това не изтрива дневника ти.</p><div class="field"><label>Дата и час</label><input id="soberStartInput" type="datetime-local" max="${new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}" value="${localValue}"></div><button class="primary" id="saveSoberStart">Запази началото</button>`);
+function archiveCurrentSession(action) {
+  if (!data.soberStart) return null;
+  const end = new Date();
+  const start = new Date(data.soberStart);
+  const session = { id: String(Date.now()), start: start.toISOString(), end: end.toISOString(), durationMs: Math.max(0, end - start), action };
+  data.soberSessions.push(session);
+  return session;
+}
+
+function formatDuration(milliseconds) {
+  const totalMinutes = Math.floor(milliseconds / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor(totalMinutes % 1440 / 60);
+  const minutes = totalMinutes % 60;
+  if (days) return `${days} д. ${hours} ч.`;
+  if (hours) return `${hours} ч. ${minutes} мин.`;
+  return `${minutes} мин.`;
+}
+
+function renderCounterHistory() {
+  const list = $('#counterHistory');
+  if (!list) return;
+  const sessions = [...data.soberSessions].reverse();
+  $('#historyCount').textContent = `${sessions.length} ${sessions.length === 1 ? 'запис' : 'записа'}`;
+  list.innerHTML = sessions.length ? sessions.map((session, index) => `<article class="history-row"><span class="history-badge">${sessions.length - index}</span><div><strong>${new Date(session.start).toLocaleDateString('bg-BG')} – ${new Date(session.end).toLocaleDateString('bg-BG')}</strong><small>${session.action === 'reset' ? 'Нулиран и започнат отново' : 'Броячът е спрян'}</small></div><span class="history-duration">${formatDuration(session.durationMs)}</span></article>`).join('') : '<div class="empty-history">Предишните постижения ще се пазят тук.</div>';
+}
+
+$('#toggleSobriety').onclick = () => {
+  if (data.soberStart) return;
+  data.soberStart = new Date().toISOString();
+  save();
+  toast('Броячът започна от нула');
+};
+
+$('#stopCounter').onclick = () => {
+  if (!data.soberStart || !confirm('Да спрем брояча и да запазим това постижение в историята?')) return;
+  archiveCurrentSession('stop');
+  data.soberStart = '';
+  save();
+  toast('Постижението е запазено');
+};
+
+$('#resetCounter').onclick = () => {
+  if (!data.soberStart || !confirm('Да запазим сегашното постижение и да започнем отново от нула?')) return;
+  archiveCurrentSession('reset');
+  data.soberStart = new Date().toISOString();
+  save();
+  toast('Старото постижение е запазено. Започваш от 0.');
 };
 
 $('#shareProgress').onclick = async () => {
   const start = data.soberStart ? new Date(data.soberStart) : null;
-  if (!start) return toast('Първо избери начална дата');
+  if (!start) return toast('Първо натисни „Трезвеност“');
   const days = Math.max(0, Math.floor((Date.now() - start.getTime()) / 86400000));
   const text = `Моят път с KILLCRITIC: ${days} дни без алкохол.`;
   try {
@@ -213,14 +278,64 @@ const challengePool = [
   ['🧹', 'Подреди малък ъгъл', 'Само едно чекмедже или една повърхност.'],
   ['🎵', 'Изслушай любима песен', 'Без да правиш нищо друго през тези минути.'],
   ['📝', 'Назови причината', 'Отбележи какво стои под желанието днес.'],
-  ['🌙', 'Подготви по-спокойна вечер', 'Избери час за сън и остави телефона настрана.']
+  ['🌙', 'Подготви по-спокойна вечер', 'Избери час за сън и остави телефона настрана.'],
+  ['🌅', 'Виж изгрева или залеза', 'Отдели пет минути само за небето.'],
+  ['🥗', 'Хапни нещо истинско', 'Избери храна, която ще даде стабилна енергия.'],
+  ['🧊', 'Измий лицето си със студена вода', 'Кратка промяна за тялото и вниманието.'],
+  ['📚', 'Прочети пет страници', 'Избери книга, а не социална мрежа.'],
+  ['🌳', 'Намери зелено място', 'Парк, дърво или тиха улица са достатъчни.'],
+  ['🧘', 'Разтегни тялото за 7 минути', 'Без състезание и без бързане.'],
+  ['☕', 'Открий ново безалкохолно място', 'Кафене, чайна или сок бар.'],
+  ['🗑', 'Изхвърли една ненужна вещ', 'Малък външен ред за малко вътрешен въздух.'],
+  ['✍', 'Запиши три неща, които спечели', 'Фокус върху върнатото, не върху забраната.'],
+  ['🛁', 'Вземи топъл душ', 'Използвай го като граница между деня и вечерта.'],
+  ['🧩', 'Реши кратък пъзел', 'Дай на мозъка различна задача.'],
+  ['🥾', 'Избери различен маршрут', 'Особено ако обичайният минава покрай рисково място.'],
+  ['🕯', 'Направи 10 минути тишина', 'Без екран, музика или известия.'],
+  ['😂', 'Намери нещо, което те разсмива', 'Кратко видео или разговор с приятел.'],
+  ['🍎', 'Приготви закуска за утре', 'Помогни на бъдещото си аз още тази вечер.'],
+  ['🎨', 'Нарисувай нещо за 5 минути', 'Не трябва да е красиво, само твое.'],
+  ['🪴', 'Погрижи се за растение', 'Полей, почисти или просто го разгледай.'],
+  ['🧠', 'Разпознай едно оправдание', 'Запиши го в радара без да го съдиш.'],
+  ['👟', 'Направи 1000 допълнителни крачки', 'Натрупай ги спокойно до края на деня.'],
+  ['💬', 'Кажи честно как си', 'Избери един безопасен човек.'],
+  ['🍵', 'Направи ритуал с чай', 'Избери чаша, аромат и спокойно място.'],
+  ['🔕', 'Изключи известията за 30 минути', 'Дай почивка на вниманието си.'],
+  ['🛒', 'Купи си полезна малка награда', 'Плод, книга или нещо за хобито ти.'],
+  ['🧦', 'Подготви дрехите за утре', 'Една малка грижа за сутринта.'],
+  ['🎧', 'Чуй кратък подкаст', 'Избери тема, която няма общо с алкохола.'],
+  ['🪟', 'Проветри и поеми 10 дълбоки вдишвания', 'Промени въздуха и темпото.'],
+  ['🧑‍🍳', 'Сготви нещо лесно', 'Дори сандвичът може да бъде съзнателно действие.'],
+  ['📵', 'Остави телефона в друга стая', 'Започни само с 15 минути.'],
+  ['🧱', 'Направи 20 клякания', 'Ако е безопасно за теб, движи се бавно.'],
+  ['🗺', 'Планирай кратка разходка за уикенда', 'Избери място и час.'],
+  ['💌', 'Изпрати благодарност', 'Едно изречение към човек, който ти е помогнал.'],
+  ['🧺', 'Сгъни пет дрехи', 'Спри след пет, ако искаш. Мисията е изпълнена.'],
+  ['🌧', 'Послушай звуци от природа', 'Пет минути дъжд, море или гора.'],
+  ['🪥', 'Направи вечерната грижа по-рано', 'Създай сигнал, че денят приключва.'],
+  ['🚰', 'Напълни бутилка за деня', 'Дръж я на видно място.'],
+  ['🧑‍🤝‍🧑', 'Планирай среща без алкохол', 'Предложи разходка, кино или кафе.'],
+  ['🎯', 'Избери една задача за утре', 'Само една ясна и изпълнима стъпка.'],
+  ['🫶', 'Кажи си едно добро изречение', 'Говори си така, както би говорил на приятел.'],
+  ['🛌', 'Легни 20 минути по-рано', 'Сънят е част от превенцията, не награда.']
 ];
+
+function seededRandom(seed) {
+  let value = seed || 1;
+  return () => {
+    value = Math.imul(value ^ value >>> 15, value | 1);
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+    return ((value ^ value >>> 14) >>> 0) / 4294967296;
+  };
+}
 
 function todayChallenges() {
   const key = localDateKey();
   const variant = data.challengeVariant[key] || 0;
-  const seed = [...key].reduce((sum, char) => sum + char.charCodeAt(0), 0) + variant * 3;
-  return Array.from({ length: 4 }, (_, index) => challengePool[(seed + index * 2) % challengePool.length]);
+  const seed = [...key].reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 11), 0) + variant * 7919;
+  const random = seededRandom(seed);
+  const shuffled = challengePool.map((item, index) => ({ item, order: random() + index / 100000 })).sort((a, b) => a.order - b.order);
+  return shuffled.slice(0, 6).map(entry => entry.item);
 }
 
 function renderChallenges() {
@@ -230,8 +345,8 @@ function renderChallenges() {
   const completed = data.challengeCompletions[key] || [];
   $('#challengeDate').textContent = new Intl.DateTimeFormat('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
   list.innerHTML = todayChallenges().map((item, index) => `<article class="challenge-item ${completed.includes(index) ? 'done' : ''}"><span class="challenge-icon">${item[0]}</span><div><h2>${item[1]}</h2><p>${item[2]}</p></div><button class="challenge-check" data-challenge-index="${index}" aria-label="Завърши предизвикателството">${completed.includes(index) ? '✓' : ''}</button></article>`).join('');
-  $('#challengeProgressText').textContent = `${completed.length} от 4`;
-  $('#challengeProgressBar').style.width = `${completed.length * 25}%`;
+  $('#challengeProgressText').textContent = `${completed.length} от 6`;
+  $('#challengeProgressBar').style.width = `${completed.length / 6 * 100}%`;
 }
 
 $('#challengeList').onclick = event => {
@@ -283,6 +398,44 @@ function renderCalendar() {
   $('#monthSoberDays').textContent = sober;
   $('#monthDrinkDays').textContent = drink;
   $('#monthSuccess').textContent = sober + drink ? `${Math.round(sober / (sober + drink) * 100)}%` : '0%';
+  renderCalendarStatistics();
+}
+
+function renderCalendarStatistics() {
+  const entries = Object.entries(data.sobrietyDays).sort((a, b) => a[0].localeCompare(b[0]));
+  const allSober = entries.filter(([, state]) => state === 'sober').length;
+  let best = 0, run = 0, previousDate = null;
+  entries.forEach(([key, state]) => {
+    const date = new Date(`${key}T12:00:00`);
+    const consecutive = previousDate && Math.round((date - previousDate) / 86400000) === 1;
+    if (state === 'sober') run = consecutive ? run + 1 : 1;
+    else run = 0;
+    best = Math.max(best, run);
+    previousDate = date;
+  });
+
+  let current = 0;
+  const cursor = new Date();
+  if (!data.sobrietyDays[localDateKey(cursor)]) cursor.setDate(cursor.getDate() - 1);
+  while (data.sobrietyDays[localDateKey(cursor)] === 'sober') {
+    current++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  let recentSober = 0, recentDrink = 0;
+  for (let offset = 0; offset < 30; offset++) {
+    const date = new Date();
+    date.setDate(date.getDate() - offset);
+    const state = data.sobrietyDays[localDateKey(date)];
+    if (state === 'sober') recentSober++;
+    if (state === 'drink') recentDrink++;
+  }
+  const recentPercent = recentSober + recentDrink ? Math.round(recentSober / (recentSober + recentDrink) * 100) : 0;
+  $('#currentStreak').textContent = current;
+  $('#bestStreak').textContent = best;
+  $('#allSoberDays').textContent = allSober;
+  $('#last30Success').textContent = `${recentPercent}%`;
+  $('#last30Bar').style.width = `${recentPercent}%`;
 }
 
 $('#previousMonth').onclick = () => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1); renderCalendar(); };
@@ -408,12 +561,6 @@ function openPlacesModal() {
 }
 
 document.addEventListener('click', async event => {
-  if (event.target.id === 'saveSoberStart') {
-    const value = $('#soberStartInput').value;
-    if (!value || new Date(value) > new Date()) return toast('Избери дата и час, които вече са минали');
-    data.soberStart = new Date(value).toISOString();
-    save(); closeModal(); toast('Броячът е обновен');
-  }
   if (event.target.matches('#reasons button')) {
     $$('#reasons button').forEach(item => item.classList.remove('selected'));
     event.target.classList.add('selected');
@@ -636,7 +783,7 @@ $('#resetData').onclick = () => {
   data = emptyProfile();
   data.profileName = name;
   data.createdAt = new Date().toISOString();
-  data.soberStart = new Date().toISOString();
+  data.soberStart = '';
   localStorage.removeItem('kc_audio');
   audioUrl = '';
   save();

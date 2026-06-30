@@ -17,6 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="updates.css">
+  <link rel="stylesheet" href="counter-updates.css">
 </head>
 <body>
   <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
@@ -32,17 +33,18 @@
           <p class="eyebrow">МОЯТ ПЪТ БЕЗ АЛКОХОЛ</p>
           <h1>Всяка секунда<br><span>е твоя.</span></h1>
           <div class="counter-stack" aria-label="Време без алкохол">
-            <article class="counter-unit featured"><span id="counterYears">0</span><small>години</small></article>
-            <article class="counter-unit"><span id="counterMonths">0</span><small>месеца</small></article>
-            <article class="counter-unit"><span id="counterDays">0</span><small>дни</small></article>
-            <article class="counter-unit"><span id="counterHours">0</span><small>часа</small></article>
-            <article class="counter-unit"><span id="counterMinutes">0</span><small>минути</small></article>
-            <article class="counter-unit"><span id="counterSeconds">0</span><small>секунди</small></article>
+            <article class="counter-unit" data-counter-unit="years"><span id="counterYears">0</span><small>години</small></article>
+            <article class="counter-unit" data-counter-unit="months"><span id="counterMonths">0</span><small>месеца</small></article>
+            <article class="counter-unit" data-counter-unit="days"><span id="counterDays">0</span><small>дни</small></article>
+            <article class="counter-unit" data-counter-unit="hours"><span id="counterHours">0</span><small>часа</small></article>
+            <article class="counter-unit" data-counter-unit="minutes"><span id="counterMinutes">0</span><small>минути</small></article>
+            <article class="counter-unit" data-counter-unit="seconds"><span id="counterSeconds">0</span><small>секунди</small></article>
           </div>
-          <div class="counter-actions"><button class="primary" id="setSoberStart">Избери начална дата</button><button class="share-button" id="shareProgress">Сподели прогреса</button></div>
+          <div class="counter-actions"><button class="primary sobriety-button" id="toggleSobriety">Трезвеност</button><button class="counter-control" id="stopCounter">■ Спри</button><button class="counter-control" id="resetCounter">↻ Нулирай</button><button class="share-button" id="shareProgress">Сподели</button></div>
           <p class="counter-since" id="counterSince">Началото е сега.</p>
         </div>
         <section class="card counter-note"><span>✦</span><div><p class="eyebrow">ТВОЯТ ПРОГРЕС</p><h2 id="counterMessage">Не е нужно да мислиш за завинаги. Само за днес.</h2></div></section>
+        <section class="counter-history-section"><div class="section-title"><div><p class="eyebrow">ЗАПАЗЕНИ ПОСТИЖЕНИЯ</p><h2>История на брояча</h2></div><span id="historyCount">0 записа</span></div><div class="counter-history" id="counterHistory"></div></section>
       </section>
 
       <section class="page" id="challengesPage">
@@ -50,7 +52,7 @@
           <p class="eyebrow">МАЛКИ ДЕЙСТВИЯ, ИСТИНСКА ПРОМЯНА</p>
           <h1>Твоят план<br><span>за днес.</span></h1>
           <p id="challengeDate"></p>
-          <div class="daily-progress"><div><strong id="challengeProgressText">0 от 4</strong><small>завършени</small></div><div class="progress-track"><i id="challengeProgressBar"></i></div></div>
+          <div class="daily-progress"><div><strong id="challengeProgressText">0 от 6</strong><small>завършени</small></div><div class="progress-track"><i id="challengeProgressBar"></i></div></div>
         </div>
         <div class="challenge-list" id="challengeList"></div>
         <button class="refresh-challenges" id="refreshChallenges">↻ Дай ми различни предизвикателства</button>
@@ -65,6 +67,7 @@
           <div class="calendar-legend"><span><i class="sober-dot"></i> Трезвен ден</span><span><i class="drink-dot"></i> Ден с алкохол</span><span>Докосни ден за промяна</span></div>
         </section>
         <section class="month-summary"><article><small>ТРЕЗВИ ДНИ</small><strong id="monthSoberDays">0</strong></article><article><small>ДНИ С АЛКОХОЛ</small><strong id="monthDrinkDays">0</strong></article><article><small>УСПЕВАЕМОСТ</small><strong id="monthSuccess">0%</strong></article></section>
+        <section class="calendar-statistics card"><div class="section-title"><div><p class="eyebrow">ОБЩА СТАТИСТИКА</p><h2>Твоята последователност</h2></div></div><div class="stats-grid"><article><span>🔥</span><strong id="currentStreak">0</strong><small>текуща серия</small></article><article><span>🏆</span><strong id="bestStreak">0</strong><small>най-добра серия</small></article><article><span>✓</span><strong id="allSoberDays">0</strong><small>общо трезви дни</small></article><article><span>30</span><strong id="last30Success">0%</strong><small>последни 30 дни</small></article></div><div class="trend-line"><span>Последни 30 дни</span><div><i id="last30Bar"></i></div></div></section>
       </section>
 
       <section class="page" id="morePage">
