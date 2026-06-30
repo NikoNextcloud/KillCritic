@@ -1,0 +1,13 @@
+{
+  "name": "KILLCRITIC — кризата има край",
+  "short_name": "KILLCRITIC",
+  "description": "Личен помощник за трудните моменти, без вина и без назидание.",
+  "lang": "bg",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fff8f1",
+  "theme_color": "#40366f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
