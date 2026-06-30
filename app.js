@@ -203,7 +203,6 @@ function updateCounter() {
   $('#toggleSobriety').classList.toggle('running', Boolean(start));
   $('#toggleSobriety').disabled = Boolean(start);
   $('#stopCounter').disabled = !start;
-  $('#resetCounter').disabled = !start;
   $('#shareProgress').disabled = !start;
 }
 
@@ -247,14 +246,6 @@ $('#stopCounter').onclick = () => {
   data.soberStart = '';
   save();
   toast('Постижението е запазено');
-};
-
-$('#resetCounter').onclick = () => {
-  if (!data.soberStart || !confirm('Да запазим сегашното постижение и да започнем отново от нула?')) return;
-  archiveCurrentSession('reset');
-  data.soberStart = new Date().toISOString();
-  save();
-  toast('Старото постижение е запазено. Започваш от 0.');
 };
 
 $('#shareProgress').onclick = async () => {
