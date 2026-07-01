@@ -8,6 +8,8 @@ const emptyProfile = () => ({
   moods: [],
   reasons: [],
   cravings: [],
+  crisisCheckins: [],
+  progressCheckins: [],
   missions: 0,
   contact: '',
   wins: 0,
@@ -26,6 +28,8 @@ let data = loadProfile();
 let recorder;
 let recordedChunks = [];
 let audioUrl = localStorage.getItem('kc_audio') || '';
+let audioBlob = null;
+let activeAudioObjectUrl = '';
 let crisisInterval;
 let locationWatcher;
 let remaining = 300;
@@ -71,14 +75,15 @@ function render() {
   $('#onboarding').setAttribute('aria-hidden', data.profileName ? 'true' : 'false');
 
   const totals = data.costs.reduce((sum, item) => ({
-    sleep: sum.sleep + Number(item.sleep || 0),
+    sleep: sum.sleep + Number(item.sleepHours || 0),
+    sleepEntries: sum.sleepEntries + (Number.isFinite(Number(item.sleepHours)) ? 1 : 0),
     money: sum.money + Number(item.money || 0),
-    workouts: sum.workouts + Number(item.workouts || 0)
-  }), { sleep: 0, money: 0, workouts: 0 });
+    anxiety: sum.anxiety + Number(item.anxiety || 0)
+  }), { sleep: 0, sleepEntries: 0, money: 0, anxiety: 0 });
   $('#costEntriesCount').textContent = data.costs.length;
-  $('#totalSleepCost').textContent = `${totals.sleep.toFixed(1)} ч.`;
+  $('#totalSleepCost').textContent = `${totals.sleepEntries ? (totals.sleep / totals.sleepEntries).toFixed(1) : '0'} ч.`;
   $('#totalMoneyCost').textContent = `${totals.money.toFixed(2)} лв.`;
-  $('#totalWorkouts').textContent = totals.workouts;
+  $('#averageAnxiety').textContent = `${data.costs.length ? (totals.anxiety / data.costs.length).toFixed(1) : '0'}/10`;
   if (data.aiInsights.length) $('#aiInsightText').textContent = data.aiInsights.at(-1).text;
 
   const recent = data.moods.slice(-7);
@@ -100,10 +105,44 @@ function render() {
   $('#patternText').textContent = topReason
     ? `Най-често отбелязваш „${topReason[0].toLowerCase()}“. Това е добра точка за ранна грижа.`
     : 'Когато събереш няколко отбелязвания, тук ще видиш своите закономерности.';
+  renderBehaviorStatistics();
   renderChallenges();
   renderCalendar();
   updateCounter();
   renderCounterHistory();
+}
+
+function mostCommon(items, key) {
+  return Object.entries(items.reduce((counts, item) => {
+    const value = item[key];
+    if (value) counts[value] = (counts[value] || 0) + 1;
+    return counts;
+  }, {})).sort((a, b) => b[1] - a[1])[0];
+}
+
+function renderBehaviorStatistics() {
+  const checkins = [...(data.crisisCheckins || []), ...(data.progressCheckins || [])];
+  const cravingEntries = data.cravings || [];
+  const average = cravingEntries.length ? cravingEntries.reduce((sum, item) => sum + Number(item.level || 0), 0) / cravingEntries.length : 0;
+  const topMood = mostCommon(checkins, 'mood');
+  const topReason = mostCommon(checkins, 'reason');
+  const moodEntry = topMood && checkins.find(item => item.mood === topMood[0]);
+  $('#checkinsCount').textContent = checkins.length;
+  $('#averageCraving').textContent = `${average.toFixed(1)}/10`;
+  $('#topMoodEmoji').textContent = moodEntry?.emoji || '·';
+  $('#topMoodText').textContent = topMood?.[0] || '—';
+  $('#topReasonText').textContent = topReason?.[0] || '—';
+
+  const combinations = Object.entries(checkins.reduce((counts, item) => {
+    if (item.mood && item.reason) {
+      const key = `${item.mood}|${item.reason}`;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, {})).sort((a, b) => b[1] - a[1])[0];
+  $('#behaviorConnection').textContent = combinations
+    ? `Най-честата връзка е „${combinations[0].split('|')[0].toLowerCase()}“ + „${combinations[0].split('|')[1].toLowerCase()}“ — ${combinations[1]} ${combinations[1] === 1 ? 'път' : 'пъти'}.`
+    : 'Добави няколко записвания в „Твоят прогрес“, за да видиш връзките.';
 }
 
 $$('.bottom-nav button').forEach(button => button.onclick = () => {
@@ -134,6 +173,8 @@ $('#createProfile').onclick = () => {
   data.soberStart = '';
   localStorage.removeItem('kc_audio');
   audioUrl = '';
+  audioBlob = null;
+  deleteAudioRecording();
   save();
   toast('Твоят профил започна от 0');
 };
@@ -144,6 +185,8 @@ $('#newProfile').onclick = () => {
   localStorage.removeItem('kc_audio');
   localStorage.removeItem('killcritic');
   audioUrl = '';
+  audioBlob = null;
+  deleteAudioRecording();
   render();
 };
 
@@ -442,15 +485,51 @@ $('#calendarGrid').onclick = event => {
   save();
 };
 
-$('#moodPicker').onclick = event => {
+$('#progressMoodPicker').onclick = event => {
   const button = event.target.closest('button');
   if (!button) return;
-  $$('#moodPicker button').forEach(item => item.classList.remove('selected'));
+  $$('#progressMoodPicker button').forEach(item => item.classList.remove('selected'));
   button.classList.add('selected');
-  data.moods.push({ mood: button.dataset.mood, emoji: button.dataset.emoji, at: new Date().toISOString() });
-  $('#moodStatus').textContent = 'запазено';
+};
+
+$('#progressReasons').onclick = event => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  $$('#progressReasons button').forEach(item => item.classList.remove('selected'));
+  button.classList.add('selected');
+};
+
+$('#saveProgressCheckin').onclick = async () => {
+  const moodButton = $('#progressMoodPicker .selected');
+  const reasonButton = $('#progressReasons .selected');
+  if (!moodButton) return toast('Избери настроение');
+  if (!reasonButton) return toast('Избери какво стои под желанието за пиене');
+  const at = new Date().toISOString();
+  const entry = {
+    id: String(Date.now()),
+    mood: moodButton.dataset.mood,
+    emoji: moodButton.dataset.emoji,
+    reason: reasonButton.textContent.trim(),
+    at
+  };
+  data.progressCheckins.push(entry);
+  data.moods.push({ mood: entry.mood, emoji: entry.emoji, at });
+  data.reasons.push({ reason: entry.reason, at });
+  data.wins++;
   save();
-  toast('Настроението е отбелязано');
+  const result = $('#progressAnalysis');
+  result.hidden = false;
+  result.innerHTML = '<strong>Анализирам записването…</strong>';
+  const history = [...data.crisisCheckins, ...data.progressCheckins];
+  const similar = history.filter(item => item.id !== entry.id && item.reason === entry.reason && item.mood === entry.mood);
+  const local = similar.length
+    ? `Има още ${similar.length} ${similar.length === 1 ? 'подобно записване' : 'подобни записвания'} с настроение „${entry.mood.toLowerCase()}“ и причина „${entry.reason.toLowerCase()}“.`
+    : 'Това е първото записване с тази комбинация. С времето тук ще се появят по-надеждни връзки.';
+  const ai = await requestAI('checkin', { current: entry, history: history.slice(-30), costs: data.costs.slice(-20), cravings: data.cravings.slice(-30) });
+  entry.analysis = ai || local;
+  save();
+  result.innerHTML = `<strong>${ai ? 'AI анализ' : 'Локален анализ'}</strong><p>${escapeHtml(entry.analysis)}</p><small>Наблюдение, не медицинска диагноза.</small>`;
+  toast('Прогресът е запазен');
 };
 
 const missions = ['Излез и снимай нещо синьо.', 'Извърви 2 километра без бързане.', 'Открий ново кафе или чай.', 'Обади се на човек, когото харесваш.', 'Пусни една песен и подреди малък ъгъл.', 'Намери място, от което се вижда небето.', 'Направи си студена лимонада.'];
@@ -476,50 +555,116 @@ function closeModal() {
 }
 $$('[data-close]').forEach(element => element.onclick = closeModal);
 
-$('#openSimulator').onclick = () => {
-  openModal(`<p class="eyebrow">СИМУЛАТОР „СЛЕД 6 ЧАСА“</p><h2>Нека видим целия сценарий.</h2><p>Това е ориентир, не медицинска прогноза.</p><div class="field"><label>Колко напитки обмисляш?</label><input id="drinkCount" type="range" min="1" max="10" value="5"><strong><output id="drinkOut">5</output> напитки</strong></div><div class="result-box" id="simResult"></div><button class="primary" data-close-now>Добре, видях го</button>`);
-  const range = $('#drinkCount');
-  const result = $('#simResult');
-  const calculate = () => {
-    const count = Number(range.value);
-    $('#drinkOut').textContent = count;
-    result.innerHTML = `<strong>Възможният утрешен отпечатък</strong><p>≈ ${Math.round(count * 55)} мин. нарушен сън<br>≈ ${count * 6} лв. разход<br>Енергия: −${Math.min(70, count * 8)}%</p>`;
-  };
-  range.oninput = calculate;
-  calculate();
-  $('[data-close-now]').onclick = closeModal;
-};
-
-$('#openReason').onclick = () => openModal(`<p class="eyebrow">БЕЗ ПИСАНЕ</p><h2>Какво стои под желанието?</h2><div class="choice-list" id="reasons">${['Стрес', 'Самота', 'Скука', 'Празник', 'Тревожност', 'Умора'].map(reason => `<button>${reason}</button>`).join('')}</div><button class="primary" id="saveReason">Запази наблюдението</button>`);
-
 $('#openMessage').onclick = () => {
-  openModal(`<p class="eyebrow">ПОСЛАНИЕ ОТ ТРЕЗВОТО АЗ</p><h2>Твоят глас е по-силен.</h2><p>Запиши кратко послание за труден момент. То остава в този браузър.</p><div class="record-status" id="recordStatus">${audioUrl ? 'Има запазено послание.' : 'Все още няма запис.'}</div><button class="primary" id="recordButton">● Започни запис</button> ${audioUrl ? '<button class="text-button" id="previewAudio">▶ Чуй записа</button>' : ''}`);
+  const hasRecording = Boolean(audioBlob || audioUrl);
+  openModal(`<p class="eyebrow">ПОСЛАНИЕ ОТ ТРЕЗВОТО АЗ</p><h2>Твоят глас е по-силен.</h2><p>Запиши кратко послание за труден момент. То остава само в този браузър.</p><div class="record-status ${hasRecording ? 'success' : ''}" id="recordStatus">${hasRecording ? 'Има запазено и готово за слушане послание.' : 'Все още няма запис.'}</div><audio class="record-player" id="recordPreview" controls ${hasRecording ? '' : 'hidden'}></audio><div class="record-actions"><button class="primary" id="recordButton">● Започни запис</button>${hasRecording ? '<button class="text-button" id="previewAudio">▶ Пусни посланието</button>' : ''}</div>`);
   setTimeout(bindRecorder);
 };
+
+function openAudioDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('killcritic-audio', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('recordings');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveAudioRecording(blob) {
+  const database = await openAudioDatabase();
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction('recordings', 'readwrite');
+    transaction.objectStore('recordings').put(blob, 'sober-self');
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
+
+async function deleteAudioRecording() {
+  try {
+    const database = await openAudioDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction('recordings', 'readwrite');
+      transaction.objectStore('recordings').delete('sober-self');
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+  } catch {}
+}
+
+async function loadAudioRecording() {
+  try {
+    const database = await openAudioDatabase();
+    audioBlob = await new Promise((resolve, reject) => {
+      const request = database.transaction('recordings').objectStore('recordings').get('sober-self');
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    if (!audioBlob && audioUrl) {
+      audioBlob = await fetch(audioUrl).then(response => response.blob());
+      if (audioBlob.size) await saveAudioRecording(audioBlob);
+    }
+  } catch {}
+}
+
+function playableAudioUrl() {
+  if (activeAudioObjectUrl) URL.revokeObjectURL(activeAudioObjectUrl);
+  activeAudioObjectUrl = audioBlob ? URL.createObjectURL(audioBlob) : audioUrl;
+  return activeAudioObjectUrl;
+}
+
+async function playSavedRecording() {
+  if (!audioBlob && !audioUrl) return toast('Първо запиши свое послание');
+  try {
+    const player = $('#recordPreview') || new Audio();
+    player.src = playableAudioUrl();
+    await player.play();
+  } catch { toast('Записът не може да се възпроизведе. Направи нов кратък запис.'); }
+}
 
 async function bindRecorder() {
   const button = $('#recordButton');
   if (!button) return;
+  const player = $('#recordPreview');
+  if ((audioBlob || audioUrl) && player) player.src = playableAudioUrl();
   button.onclick = async () => {
     try {
       if (!recorder || recorder.state === 'inactive') {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
         recordedChunks = [];
-        recorder = new MediaRecorder(stream);
-        recorder.ondataavailable = event => recordedChunks.push(event.data);
-        recorder.onstop = () => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              localStorage.setItem('kc_audio', reader.result);
-              audioUrl = reader.result;
-              toast('Посланието е запазено');
-            } catch { toast('Записът е твърде дълъг за локално пазене'); }
-          };
-          reader.readAsDataURL(new Blob(recordedChunks, { type: 'audio/webm' }));
+        const supportedType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find(type => MediaRecorder.isTypeSupported(type));
+        recorder = new MediaRecorder(stream, supportedType ? { mimeType: supportedType } : undefined);
+        recorder.ondataavailable = event => { if (event.data?.size) recordedChunks.push(event.data); };
+        recorder.onstop = async () => {
+          audioBlob = new Blob(recordedChunks, { type: recorder.mimeType || supportedType || 'audio/webm' });
           stream.getTracks().forEach(track => track.stop());
+          const status = $('#recordStatus');
+          if (audioBlob.size < 200) {
+            audioBlob = null;
+            status.textContent = 'Записът е празен. Провери разрешението за микрофона и опитай отново.';
+            status.className = 'record-status error';
+            return;
+          }
+          try {
+            await saveAudioRecording(audioBlob);
+            localStorage.removeItem('kc_audio');
+            audioUrl = '';
+            if (player) {
+              player.hidden = false;
+              player.src = playableAudioUrl();
+            }
+            status.textContent = 'Посланието е запазено. Натисни Play, за да го провериш.';
+            status.className = 'record-status success';
+            toast('Посланието е записано успешно');
+          } catch {
+            status.textContent = 'Записът е направен, но не можа да се запази на устройството.';
+            status.className = 'record-status error';
+          }
         };
-        recorder.start();
+        recorder.start(500);
         button.textContent = '■ Спри и запази';
         $('#recordStatus').textContent = 'Записваме… говори спокойно.';
       } else {
@@ -530,13 +675,13 @@ async function bindRecorder() {
     } catch { toast('Разреши достъп до микрофона'); }
   };
   const preview = $('#previewAudio');
-  if (preview) preview.onclick = () => new Audio(audioUrl).play();
+  if (preview) preview.onclick = playSavedRecording;
 }
 
 $('#openCost').onclick = openCostModal;
 function openCostModal() {
-  const rows = data.costs.slice().reverse().map(item => `<div class="list-row"><div><strong>${new Date(item.at).toLocaleDateString('bg-BG')} · ${item.money.toFixed(2)} лв.</strong><small>${item.sleep} ч. сън · енергия ${item.energy}/10 · тревожност ${item.anxiety}/10</small></div><button class="danger-btn" data-delete-cost="${item.id}">Изтрий</button></div>`).join('');
-  openModal(`<p class="eyebrow">ИСТИНСКАТА ЦЕНА</p><h2>Ти въвеждаш реалните стойности.</h2><p>Няма автоматични догадки. Запиши последствията, които действително си усетил.</p><div class="form-grid"><div class="field"><label>Похарчени пари (лв.)</label><input id="costMoney" type="number" min="0" step="0.01" value="0"></div><div class="field"><label>Загубен сън (часове)</label><input id="costSleep" type="number" min="0" step="0.5" value="0"></div><div class="field"><label>Енергия на следващия ден (0–10)</label><input id="costEnergy" type="number" min="0" max="10" value="5"></div><div class="field"><label>Пропуснати тренировки</label><input id="costWorkouts" type="number" min="0" step="1" value="0"></div><div class="field"><label>Тревожност (0–10)</label><input id="costAnxiety" type="number" min="0" max="10" value="5"></div><div class="field"><label>Продуктивност (0–10)</label><input id="costProductivity" type="number" min="0" max="10" value="5"></div></div><div class="field"><label>Бележка по желание</label><textarea id="costNote" placeholder="Какво още ти струваше този случай?"></textarea></div><button class="primary" id="saveCost">Запази случая</button><div class="cost-list">${rows || '<p>Още няма записани случаи.</p>'}</div>`);
+  const rows = data.costs.slice().reverse().map(item => `<div class="list-row"><div><strong>${new Date(item.at).toLocaleDateString('bg-BG')} · ${Number(item.money || 0).toFixed(2)} лв.</strong><small>${item.sleepHours ?? '—'} ч. сън · енергия ${item.energy}/10 · тревожност ${item.anxiety}/10</small></div><button class="danger-btn" data-delete-cost="${item.id}">Изтрий</button></div>`).join('');
+  openModal(`<p class="eyebrow">ИСТИНСКАТА ЦЕНА</p><h2>Ти въвеждаш реалните стойности.</h2><p>Запиши колко си похарчил, колко часа действително си спал и как си се чувствал на следващия ден. AI анализът ще търси връзки между съня, тревожността, енергията и продуктивността.</p><div class="form-grid"><div class="field"><label>Похарчени пари (лв.)</label><input id="costMoney" type="number" min="0" step="0.01" value="0"></div><div class="field"><label>Колко часа сън?</label><input id="costSleepHours" type="number" min="0" max="24" step="0.5" value="7"></div><div class="field"><label>Енергия на следващия ден (0–10)</label><input id="costEnergy" type="number" min="0" max="10" value="5"></div><div class="field"><label>Тревожност (0–10)</label><input id="costAnxiety" type="number" min="0" max="10" value="5"></div><div class="field"><label>Продуктивност (0–10)</label><input id="costProductivity" type="number" min="0" max="10" value="5"></div></div><div class="field"><label>Бележка по желание</label><textarea id="costNote" placeholder="Какво още забеляза след този случай?"></textarea></div><button class="primary" id="saveCost">Запази случая</button><div class="cost-list">${rows || '<p>Още няма записани случаи.</p>'}</div>`);
 }
 
 $('#openRadar').onclick = openRadarModal;
@@ -552,17 +697,6 @@ function openPlacesModal() {
 }
 
 document.addEventListener('click', async event => {
-  if (event.target.matches('#reasons button')) {
-    $$('#reasons button').forEach(item => item.classList.remove('selected'));
-    event.target.classList.add('selected');
-  }
-  if (event.target.id === 'saveReason') {
-    const selected = $('#reasons .selected');
-    if (!selected) return toast('Избери една причина');
-    data.reasons.push({ reason: selected.textContent, at: new Date().toISOString() });
-    data.wins++;
-    save(); closeModal(); toast('Наблюдението е запазено');
-  }
   if (event.target.id === 'saveCost') saveCostEntry();
   if (event.target.dataset.deleteCost) {
     data.costs = data.costs.filter(item => item.id !== event.target.dataset.deleteCost);
@@ -589,9 +723,8 @@ function saveCostEntry() {
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
     at: new Date().toISOString(),
     money: numberValue('#costMoney'),
-    sleep: numberValue('#costSleep'),
+    sleepHours: numberValue('#costSleepHours', 0, 24),
     energy: numberValue('#costEnergy', 0, 10),
-    workouts: numberValue('#costWorkouts'),
     anxiety: numberValue('#costAnxiety', 0, 10),
     productivity: numberValue('#costProductivity', 0, 10),
     note: $('#costNote').value.trim()
@@ -654,7 +787,8 @@ $('#runDeepAnalysis').onclick = async () => {
   button.disabled = true;
   button.textContent = 'Анализирам…';
   const local = buildLocalDeepInsight();
-  const ai = await requestAI('deep', { moods: data.moods.slice(-30), reasons: data.reasons.slice(-30), cravings: data.cravings.slice(-30), costs: data.costs.slice(-20), radar: data.radarEntries.slice(-20) });
+  const combinedCheckins = [...data.crisisCheckins, ...data.progressCheckins].slice(-40);
+  const ai = await requestAI('deep', { checkins: combinedCheckins, moods: data.moods.slice(-30), reasons: data.reasons.slice(-30), cravings: data.cravings.slice(-30), costs: data.costs.slice(-20), radar: data.radarEntries.slice(-20) });
   const insight = ai || local;
   data.aiInsights.push({ text: insight, at: new Date().toISOString(), source: ai ? 'ai' : 'local' });
   save();
@@ -664,10 +798,13 @@ $('#runDeepAnalysis').onclick = async () => {
 };
 
 function buildLocalDeepInsight() {
-  if (!data.costs.length && !data.reasons.length && !data.radarEntries.length) return 'Нужни са още няколко лични записа, за да се появи надежден модел.';
+  const checkinCount = data.crisisCheckins.length + data.progressCheckins.length;
+  if (!data.costs.length && !checkinCount && !data.radarEntries.length) return 'Нужни са още няколко лични записа, за да се появи надежден модел.';
   const averageAnxiety = data.costs.length ? data.costs.reduce((sum, item) => sum + item.anxiety, 0) / data.costs.length : 0;
+  const sleepEntries = data.costs.filter(item => Number.isFinite(Number(item.sleepHours)));
+  const averageSleep = sleepEntries.length ? sleepEntries.reduce((sum, item) => sum + Number(item.sleepHours), 0) / sleepEntries.length : 0;
   const exceeded = data.radarEntries.filter(item => item.actual > item.planned).length;
-  return `Имаш ${data.costs.length} записа за цена и ${data.radarEntries.length} записа в радара. Средната отбелязана тревожност е ${averageAnxiety.toFixed(1)}/10. В ${exceeded} случая реалното количество е било над планираното.`;
+  return `Имаш ${checkinCount} записвания за настроение и причина и ${data.costs.length} записа за истинската цена. Средният сън е ${averageSleep.toFixed(1)} часа, а средната тревожност е ${averageAnxiety.toFixed(1)}/10. В ${exceeded} случая реалното количество е било над планираното.`;
 }
 
 function saveCurrentPlace() {
@@ -753,9 +890,10 @@ $('#intensitySlider').oninput = event => $('#intensityOutput').textContent = eve
 $('#saveIntensity').onclick = () => {
   data.cravings.push({ level: Number($('#intensitySlider').value), at: new Date().toISOString() });
   data.wins++;
-  save(); toast('Запазено. Всяка вълна има край.');
+  save();
+  toast('Силата на желанието е запазена');
 };
-$('#playRecording').onclick = () => audioUrl ? new Audio(audioUrl).play() : toast('Първо запиши свое послание');
+$('#playRecording').onclick = playSavedRecording;
 
 $('#contactSetting').onclick = () => openModal(`<p class="eyebrow">ЧОВЕК ЗА КОНТАКТ</p><h2>Кой да е на един бутон разстояние?</h2><div class="field"><label>Телефон</label><input id="contactInput" type="tel" value="${escapeHtml(data.contact)}" placeholder="+359..."></div><button class="primary" id="saveContact">Запази</button>`);
 
@@ -777,11 +915,14 @@ $('#resetData').onclick = () => {
   data.soberStart = '';
   localStorage.removeItem('kc_audio');
   audioUrl = '';
+  audioBlob = null;
+  deleteAudioRecording();
   save();
   toast('Всичко е върнато на 0');
 };
 
 render();
+loadAudioRecording();
 counterTicker = setInterval(updateCounter, 1000);
 if (data.profileName) startLocationWatch();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) navigator.serviceWorker.register('./service-worker.js').catch(() => {});

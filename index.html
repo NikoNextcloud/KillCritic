@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="updates.css">
   <link rel="stylesheet" href="counter-updates.css">
+  <link rel="stylesheet" href="crisis-analysis.css">
 </head>
 <body>
   <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
@@ -44,6 +45,14 @@
           <p class="counter-since" id="counterSince">Началото е сега.</p>
         </div>
         <section class="card counter-note"><span>✦</span><div><p class="eyebrow">ТВОЯТ ПРОГРЕС</p><h2 id="counterMessage">Не е нужно да мислиш за завинаги. Само за днес.</h2></div></section>
+        <section class="card progress-checkin">
+          <div class="section-title"><div><p class="eyebrow">ТВОЯТ ПРОГРЕС</p><h2>Как си и какво стои под желанието?</h2></div></div>
+          <div><p class="progress-label">Отбележи настроението</p><div class="moods" id="progressMoodPicker"><button data-mood="Страхотно" data-emoji="😊">😊<small>супер</small></button><button data-mood="Спокойно" data-emoji="😐">😐<small>равно</small></button><button data-mood="Тъжно" data-emoji="😔">😔<small>тъжно</small></button><button data-mood="Ядосано" data-emoji="😡">😡<small>яд</small></button><button data-mood="Тревожно" data-emoji="😰">😰<small>тревога</small></button></div></div>
+          <div><p class="progress-label">Какво стои под желанието за пиене?</p><div class="choice-list progress-reasons" id="progressReasons"><button>Стрес</button><button>Самота</button><button>Скука</button><button>Празник</button><button>Тревожност</button><button>Умора</button></div></div>
+          <button class="primary" id="saveProgressCheckin">Запази и анализирай</button>
+          <p class="ai-data-note">При AI анализ това записване се изпраща към настроения Groq сървър. GPS координати и аудио не се изпращат.</p>
+          <div class="radar-box" id="progressAnalysis" hidden></div>
+        </section>
         <section class="counter-history-section"><div class="section-title"><div><p class="eyebrow">ЗАПАЗЕНИ ПОСТИЖЕНИЯ</p><h2>История на брояча</h2></div><span id="historyCount">0 записа</span></div><div class="counter-history" id="counterHistory"></div></section>
       </section>
 
@@ -82,26 +91,13 @@
           <span class="wave-orb" aria-hidden="true"><i></i><b>≈</b></span>
         </button>
 
-        <section class="mood-card card">
-          <div class="section-title"><div><p class="eyebrow">ЕДНО ДОКОСВАНЕ</p><h2>Отбележи настроението</h2></div><span id="moodStatus">не е избрано</span></div>
-          <div class="moods" id="moodPicker">
-            <button data-mood="Страхотно" data-emoji="😊">😊<small>супер</small></button>
-            <button data-mood="Спокойно" data-emoji="😐">😐<small>равно</small></button>
-            <button data-mood="Тъжно" data-emoji="😔">😔<small>тъжно</small></button>
-            <button data-mood="Ядосано" data-emoji="😡">😡<small>яд</small></button>
-            <button data-mood="Тревожно" data-emoji="😰">😰<small>тревога</small></button>
-          </div>
-        </section>
-
         <section class="home-tools">
           <div class="section-title tools-title"><div><p class="eyebrow">ПОМОЩ В ТОЧНИЯ МОМЕНТ</p><h2>Какво ще ти помогне сега?</h2></div></div>
           <div class="tool-grid">
-            <button class="tool-card coral" id="openSimulator"><span>6h</span><h2>След 6 часа</h2><p>Виж реалната цена на избора, преди да го направиш.</p></button>
             <button class="tool-card lavender" id="openMessage"><span>▶</span><h2>Послание от теб</h2><p>Запиши гласа на трезвото си аз за трудните моменти.</p></button>
             <button class="tool-card mint" id="openBreathing"><span>◌</span><h2>Само 5 минути</h2><p>Дишане, лично послание и човек за контакт.</p></button>
-            <button class="tool-card yellow" id="openReason"><span>✦</span><h2>Какво стои отдолу?</h2><p>Отбележи причината с едно докосване.</p></button>
             <button class="tool-card sky" id="openPlaces"><span>⌖</span><h2>Рискови места</h2><p>Запази място и получи предупреждение, когато отново си близо.</p></button>
-            <button class="tool-card rose" id="openCost"><span>∑</span><h2>Истинската цена</h2><p>Въведи сам сън, енергия, тревожност, тренировки и продуктивност.</p></button>
+            <button class="tool-card rose" id="openCost"><span>∑</span><h2>Истинската цена</h2><p>Въведи похарчени пари, часове сън, енергия, тревожност и продуктивност.</p></button>
             <button class="tool-card violet" id="openRadar"><span>AI</span><h2>Радар за самозаблуда</h2><p>Напиши мисълта си и виж дали повтаря стар модел.</p></button>
           </div>
         </section>
@@ -121,12 +117,13 @@
         </section>
         <section class="impact-grid">
           <article><small>ЗАПИСАНИ СЛУЧАИ</small><strong id="costEntriesCount">0</strong></article>
-          <article><small>ЗАГУБЕН СЪН</small><strong id="totalSleepCost">0 ч.</strong></article>
+          <article><small>СРЕДНО ЧАСОВЕ СЪН</small><strong id="totalSleepCost">0 ч.</strong></article>
           <article><small>ОБЩ РАЗХОД</small><strong id="totalMoneyCost">0 лв.</strong></article>
-          <article><small>ПРОПУСНАТИ ТРЕНИРОВКИ</small><strong id="totalWorkouts">0</strong></article>
+          <article><small>СРЕДНА ТРЕВОЖНОСТ</small><strong id="averageAnxiety">0/10</strong></article>
         </section>
         <section class="card ai-insight-card"><div><p class="eyebrow">AI АНАЛИЗ</p><h2>Свържи точките по-дълбоко</h2><p id="aiInsightText">След като добавиш записи, AI може да потърси повтарящи се часове, причини и последствия.</p><small>При натискане записите за настроение и последствия се изпращат към настроения AI сървър. GPS координати не се изпращат.</small></div><button class="primary" id="runDeepAnalysis">Анализирай записите</button></section>
         <section class="card chart-card"><div class="section-title"><div><p class="eyebrow">ПОСЛЕДНИТЕ 7 ДНИ</p><h2>Карта на настроенията</h2></div></div><div class="mood-chart" id="moodChart"></div></section>
+        <section class="behavior-stats card"><div class="section-title"><div><p class="eyebrow">ЖЕЛАНИЕ, НАСТРОЕНИЕ И ПРИЧИНИ</p><h2>Статистика от „Твоят прогрес“</h2></div></div><div class="stats-grid"><article><span>◎</span><strong id="checkinsCount">0</strong><small>общо записвания</small></article><article><span>≈</span><strong id="averageCraving">0/10</strong><small>средна сила</small></article><article><span id="topMoodEmoji">·</span><strong id="topMoodText">—</strong><small>най-често настроение</small></article><article><span>✦</span><strong id="topReasonText">—</strong><small>най-честа причина</small></article></div><p class="behavior-connection" id="behaviorConnection">Добави няколко записвания в „Твоят прогрес“, за да видиш връзките.</p></section>
         <section class="card pattern-card"><span class="spark">✦</span><div><p class="eyebrow">ЛИЧНО ПРОЗРЕНИЕ</p><h2 id="patternText">Когато събереш няколко отбелязвания, тук ще видиш своите закономерности.</h2><p>Това е наблюдение, не диагноза.</p></div></section>
       </section>
 
@@ -160,7 +157,7 @@
       <div class="breath"><div class="breath-circle"></div><span id="breathLabel">Вдишай</span></div>
       <div class="intensity"><label>Колко силно е сега? <output id="intensityOutput">7</output>/10</label><input id="intensitySlider" type="range" min="1" max="10" value="7"></div>
       <div class="crisis-actions"><button id="playRecording">▶ Послание от мен</button><a id="callContact" href="tel:112">☎ Обади се</a></div>
-      <button class="soft-link" id="saveIntensity">Запази как се чувствам</button>
+      <button class="soft-link save-checkin" id="saveIntensity">Запази силата на желанието</button>
     </div>
   </section>
   <div class="toast" id="toast" role="status"></div>

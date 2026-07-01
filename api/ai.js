@@ -4,11 +4,13 @@ module.exports = async function handler(request, response) {
 
   try {
     const body = typeof request.body === 'string' ? JSON.parse(request.body) : request.body;
-    const mode = body?.mode === 'radar' ? 'radar' : 'deep';
+    const mode = ['radar', 'checkin', 'deep'].includes(body?.mode) ? body.mode : 'deep';
     const serialized = JSON.stringify(body?.payload || {}).slice(0, 12000);
     const task = mode === 'radar'
       ? 'Анализирай текущото оправдание спрямо личната история. Посочи конкретно броя сходни случаи и колко пъти реалното количество е било над планираното, само ако данните го доказват.'
-      : 'Открий най-полезните повтарящи се връзки между настроение, причина, желание, последствия и разлика между планирано и реално количество.';
+      : mode === 'checkin'
+        ? 'Анализирай текущото настроение и причината за желание за пиене спрямо предишните записвания и отделната история за сила на желанието. Посочи само доказани от данните повторения и предложи едно кратко безопасно действие за момента.'
+        : 'Открий най-полезните повтарящи се връзки между настроение, причина, желание, часове сън, тревожност, енергия, продуктивност и разлика между планирано и реално количество.';
 
     const apiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
